@@ -14,13 +14,6 @@ import Profile from "./components/Profile";
 import "react-toastify/dist/ReactToastify.css";
 import "./index.css";
 
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const hasToken = localStorage.getItem("velocity_token");
-
-  return hasToken ? children : <Navigate to="/login" replace />;
-};
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -38,31 +31,14 @@ export default function App() {
         {/* Redirect root */}
         <Route path="/" element={<Navigate to="/home" replace />} />
 
-        {/* Public Routes */}
+        {/* All Routes are now Public */}
         <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/cars" element={<Cars />} />
+        <Route path="/booking" element={<Booking />} />
         <Route path="/bookingsuccess" element={<BookingSuccess />} />
-
-        {/* Protected Routes */}
-        <Route
-          path="/cars"
-          element={
-            <ProtectedRoute>
-              <Cars />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/booking"
-          element={
-            <ProtectedRoute>
-              <Booking />
-            </ProtectedRoute>
-          }
-        />
 
         {/* 404 Redirect */}
         <Route path="*" element={<Navigate to="/home" replace />} />
