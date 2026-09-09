@@ -25,7 +25,7 @@ export default function Otp() {
 
       return () => clearInterval(interval);
     }
-  }, [timer]);
+  }, [timer, state, navigate]);
 
   const handleChange = (value, index) => {
     if (!/^[0-9]?$/.test(value)) return;
@@ -47,19 +47,17 @@ export default function Otp() {
 
   const resendOtp = async () => {
     try {
-      const res = await fetch(
-        "http://localhost:5000/api/auth/send-otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: state.email,
-            type: state.type,
-          }),
-        }
-      );
+      // Updated to relative URL for Netlify Functions routing
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: state.email,
+          type: state.type,
+        }),
+      });
 
       if (!res.ok) throw new Error();
 
@@ -92,21 +90,19 @@ export default function Otp() {
           ? "/api/auth/signup"
           : "/api/auth/verify-otp";
 
-      const res = await fetch(
-        `http://localhost:5000${endpoint}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: state.name,
-            email: state.email,
-            password: state.password,
-            otp: code,
-          }),
-        }
-      );
+      // Updated to relative endpoint path without localhost:5000
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: state.name,
+          email: state.email,
+          password: state.password,
+          otp: code,
+        }),
+      });
 
       const data = await res.json();
 
@@ -115,7 +111,7 @@ export default function Otp() {
       }
 
       toast.success("OTP Verified!");
-      
+
       if (state.type === "signup") {
         localStorage.setItem(
           "velocity_user",
@@ -151,9 +147,7 @@ export default function Otp() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
-
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-10 shadow-2xl">
-
         <h1 className="text-3xl font-bold text-center text-white">
           Verify OTP
         </h1>
@@ -167,9 +161,7 @@ export default function Otp() {
         </p>
 
         <form onSubmit={verifyOtp}>
-
           <div className="flex justify-between mb-8">
-
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -185,7 +177,6 @@ export default function Otp() {
                 className="w-12 h-14 rounded-xl bg-slate-800 border border-slate-700 text-center text-2xl font-bold text-white focus:border-cyan-500 focus:outline-none"
               />
             ))}
-
           </div>
 
           <button
@@ -194,11 +185,9 @@ export default function Otp() {
           >
             {loading ? "Verifying..." : "Verify OTP"}
           </button>
-
         </form>
 
         <div className="text-center mt-8">
-
           {timer > 0 ? (
             <p className="text-slate-400">
               Resend OTP in {timer}s
@@ -211,11 +200,8 @@ export default function Otp() {
               Resend OTP
             </button>
           )}
-
         </div>
-
       </div>
-
     </div>
   );
 }

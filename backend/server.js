@@ -1,4 +1,3 @@
-const fetch = require('node-fetch'); 
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,25 +5,25 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const crypto = require('crypto');
+const serverless = require('serverless-http');
 
 dotenv.config();
 
 const app = express();
 
-// APP MIDDLEWARE
+// MIDDLEWARE
 app.use(cors());
 app.use(express.json());
 
-// DATABASE
+// DATABASE CONNECTION
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log(' Velocity Database Matrix Connected Securely'))
+  .then(() => console.log('Database Connected Successfully'))
   .catch((err) => {
-    console.error('❌ Database connection crash!');
+    console.error('❌ Database Connection Error:');
     console.error(err);
   });
 
-
-// SCHEMAS
+// SCHEMAS & MODELS
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -36,13 +35,8 @@ const userSchema = new mongoose.Schema({
 
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-  } catch (err) {
-    console.error("Encryption hook failed:", err);
-    throw err; 
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 const User = mongoose.model('User', userSchema);
@@ -58,7 +52,7 @@ const profileSchema = new mongoose.Schema({
 
 const Profile = mongoose.model('Profile', profileSchema);
 
-// OTP Schema
+// OTP Schema (expires in 5 mins)
 const otpSchema = new mongoose.Schema({
   email: { type: String, required: true, lowercase: true, trim: true },
   otp: { type: String, required: true },
@@ -79,7 +73,7 @@ const carSchema = new mongoose.Schema({
   available: { type: Boolean, default: true }
 });
 
-const Car = mongoose.model("Car", carSchema);
+const Car = mongoose.model('Car', carSchema);
 
 // Booking Schema
 const bookingSchema = new mongoose.Schema({
@@ -92,7 +86,6 @@ const bookingSchema = new mongoose.Schema({
 });
 
 const Booking = mongoose.model('Booking', bookingSchema);
-
 
 // AUTHENTICATION MIDDLEWARE
 const authenticateUser = async (req, res, next) => {
@@ -111,13 +104,8 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
-
 // EMAIL UTILITIES (BREVO)
-
-// Send OTP
 const sendOTPEmail = async (email, otp) => {
-  const senderEmail = process.env.EMAIL_FROM; 
-  
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
@@ -126,30 +114,19 @@ const sendOTPEmail = async (email, otp) => {
       "content-type": "application/json"
     },
     body: JSON.stringify({
-      sender: { name: "Velocity Rentals", email: senderEmail },
-      to: [{ email: email }],
-      subject: 'Your Velocity Verification Code',
-      htmlContent: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; background-color: #ffffff;">
-          <h2 style="color: #f59e0b; text-align: center; font-weight: 800; letter-spacing: 1px;">VELOCITY</h2>
-          <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello,</p>
-          <p style="color: #475569; font-size: 16px; line-height: 1.6;">Use the verification code below to complete your action on Velocity Rentals.</p>
-          <div style="text-align: center; margin: 32px 0;">
-            <span style="font-size: 32px; font-weight: 900; color: #0f172a; letter-spacing: 8px; background-color: #f8fafc; padding: 12px 24px; border-radius: 8px; border: 1px dashed #cbd5e1;">${otp}</span>
-          </div>
-        </div>
-      `
+      sender: { name: "Velocity Rentals", email: process.env.EMAIL_FROM },
+      to: [{ email }],
+      subject: 'Your Verification Code',
+      htmlContent: `<p>Your OTP code is: <strong>${otp}</strong></p>`
     })
   });
 
-  if (!response.ok) throw new Error("Email engine pipeline failure");
+  if (!response.ok) throw new Error("Email sending failed.");
   return response;
 };
 
-// Send Booking Confirmation
 const sendBookingConfirmationEmail = async (email, userName, bookingDetails) => {
-  const senderEmail = process.env.EMAIL_FROM; 
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000/cars";
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
@@ -159,38 +136,30 @@ const sendBookingConfirmationEmail = async (email, userName, bookingDetails) => 
       "content-type": "application/json"
     },
     body: JSON.stringify({
-      sender: { name: "Velocity Rentals", email: senderEmail },
-      to: [{ email: email }],
-      subject: '🚗 Booking Confirmed! Your Ride is Ready',
+      sender: { name: "Velocity Rentals", email: process.env.EMAIL_FROM },
+      to: [{ email }],
+      subject: '🚗 Booking Confirmed!',
       htmlContent: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; background-color: #ffffff;">
-          <h2 style="color: #f59e0b; text-align: center; font-weight: 800; letter-spacing: 1px;">VELOCITY</h2>
-          <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello ${userName},</p>
-          <p style="color: #475569; font-size: 16px; line-height: 1.6;">Your car rental reservation has been successfully confirmed. Here are your booking details:</p>
-          
-          <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0; border: 1px solid #cbd5e1;">
-            <p style="margin: 4px 0;"><strong>Car Model:</strong> ${bookingDetails.carName}</p>
-            <p style="margin: 4px 0;"><strong>Duration:</strong> ${bookingDetails.startDate} to ${bookingDetails.endDate}</p>
-          </div>
-
-          <p style="color: #475569; font-size: 16px; line-height: 1.6;">You can view your real-time booking status or manage your order anytime on our platform:</p>
-          
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${frontendUrl}" style="background-color: #0f172a; color: #ffffff; padding: 14px 28px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block; font-size: 16px;">
-              View My Bookings
-            </a>
-          </div>
-        </div>
+        <h2>Hello ${userName},</h2>
+        <p>Your booking for <strong>${bookingDetails.carName}</strong> from ${bookingDetails.startDate} to ${bookingDetails.endDate} is confirmed!</p>
+        <a href="${frontendUrl}">View Bookings</a>
       `
     })
   });
 
-  if (!response.ok) throw new Error("Booking email delivery failed");
+  if (!response.ok) throw new Error("Booking email failed.");
   return response;
 };
 
+// ROUTES
 
-// ROUTE HANDLERS
+// Health Check / Root Route
+app.get('/', (req, res) => {
+  res.json({ 
+    service: "Velocity Rentals API Online", 
+    database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected" 
+  });
+});
 
 // Send OTP
 app.post('/api/auth/send-otp', async (req, res) => {
@@ -208,33 +177,32 @@ app.post('/api/auth/send-otp', async (req, res) => {
     await newOTP.save();
 
     await sendOTPEmail(email, otp);
-    res.status(200).json({ message: 'Verification security token sent.' });
+    res.status(200).json({ message: 'OTP sent successfully.' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to send OTP.' });
   }
 });
 
-// Verify OTP Route
+// Verify OTP
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ message: 'Email and verification code are required.' });
+    if (!email || !otp) return res.status(400).json({ message: 'Email and OTP required.' });
 
     const otpRecord = await OTP.findOne({ email, otp });
-    if (!otpRecord) return res.status(400).json({ message: 'Invalid or expired authorization code.' });
+    if (!otpRecord) return res.status(400).json({ message: 'Invalid or expired OTP.' });
 
-    res.status(200).json({ success: true, message: 'Identity security parameters verified successfully!' });
+    res.status(200).json({ success: true, message: 'OTP verified successfully!' });
   } catch (error) {
-    console.error("OTP Route Verification Failure:", error);
-    res.status(500).json({ message: 'Internal validation handling crash.' });
+    res.status(500).json({ message: 'OTP verification failed.' });
   }
 });
 
-// Reset Password Route
+// Reset Password
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Email and new password are required.' });
+    if (!email || !password) return res.status(400).json({ message: 'Email and password required.' });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found.' });
@@ -244,20 +212,19 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Password updated successfully!' });
   } catch (error) {
-    console.error("Password Reset Failure:", error);
-    res.status(500).json({ message: 'Internal server error during password reset.' });
+    res.status(500).json({ message: 'Password reset failed.' });
   }
 });
 
-// User Signup
+// Signup
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { name, email, password, otp } = req.body;
     const otpRecord = await OTP.findOne({ email, otp });
-    if (!otpRecord) return res.status(400).json({ message: 'Invalid or expired authorization code.' });
+    if (!otpRecord) return res.status(400).json({ message: 'Invalid or expired OTP.' });
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'Email already occupied.' });
+    if (existingUser) return res.status(400).json({ message: 'Email already exists.' });
 
     const newUser = new User({ name, email, password });
     await newUser.save();
@@ -270,22 +237,21 @@ app.post('/api/auth/signup', async (req, res) => {
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     res.status(201).json({ 
-      message: 'Account initialized', 
+      message: 'Account created', 
       token, 
       user: { id: newUser._id, name: newUser.name, email: newUser.email },
       profile: newProfile 
     });
   } catch (error) {
-    console.error("Signup Route Failure:", error);
-    res.status(500).json({ message: 'Registration handling crash.' });
+    res.status(500).json({ message: 'Signup failed.' });
   }
 });
 
-// User Login
+// Login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Missing validation keys.' });
+    if (!email || !password) return res.status(400).json({ message: 'Email and password required.' });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials.' });
@@ -297,37 +263,34 @@ app.post('/api/auth/login', async (req, res) => {
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     res.status(200).json({ 
-      message: 'Welcome back', 
+      message: 'Login successful', 
       token, 
       user: { id: user._id, name: user.name, email: user.email },
       profile: userProfile || null
     });
   } catch (error) {
-    res.status(500).json({ message: 'Internal engine error.' });
+    res.status(500).json({ message: 'Login failed.' });
   }
 });
 
-// Get all cars
+// Get Cars
 app.get('/api/cars', async (req, res) => {
   try {
     const cars = await Car.find();
     res.json(cars);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch cars' });
+    res.status(500).json({ message: 'Failed to fetch cars.' });
   }
 });
 
-// Create Car Booking
+// Create Booking
 app.post('/api/bookings', authenticateUser, async (req, res) => {
   try {
     const { carId, startDate, endDate, totalPrice } = req.body;
-
-    if (!carId || !startDate || !endDate) {
-      return res.status(400).json({ message: "Missing required booking details." });
-    }
+    if (!carId || !startDate || !endDate) return res.status(400).json({ message: "Missing booking details." });
 
     const car = await Car.findById(carId);
-    if (!car) return res.status(404).json({ message: "Car model not found." });
+    if (!car) return res.status(404).json({ message: "Car not found." });
 
     const newBooking = new Booking({
       userId: req.user._id,
@@ -344,25 +307,17 @@ app.post('/api/bookings', authenticateUser, async (req, res) => {
       endDate
     });
 
-    res.status(201).json({
-      success: true,
-      message: "Booking secured! Confirmation email dispatched.",
-      booking: newBooking
-    });
-
+    res.status(201).json({ success: true, booking: newBooking });
   } catch (error) {
-    console.error("Booking API processing failure:", error);
-    res.status(500).json({ message: "Internal handling error while processing booking." });
+    res.status(500).json({ message: "Booking failed." });
   }
 });
 
-app.get('/', (req, res) => {
-  res.json({ 
-    service: "Core Engine Online", 
-    database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected" 
-  });
-});
-
-// SERVER
+// START SERVER
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Core Engine firing on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const serverless = require('serverless-http');
+
+// Export the handler for Netlify Serverless Functions
+module.exports = app;
+module.exports.handler = serverless(app);

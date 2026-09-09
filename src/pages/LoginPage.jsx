@@ -39,7 +39,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      // Updated from http://localhost:5000/api/auth/login to relative path
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json" 
