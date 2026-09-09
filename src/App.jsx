@@ -8,7 +8,7 @@ import Home from "./pages/HomePage";
 import Cars from "./pages/Cars";
 import Booking from "./pages/Booking";
 import BookingSuccess from "./pages/BookingSuccess";
-import Otp from "./pages/Otp";
+import Otp from "./pages/OTP";
 import ForgotPassword from "./pages/ForgotPasswordPage";
 import ResetPassword from "./pages/ResetPasswordPage";
 import AdminDashboard from "./admin/AdminDashboard";
