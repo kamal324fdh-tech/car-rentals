@@ -3,7 +3,6 @@ import { useLocation, Link } from "react-router-dom";
 export default function BookingSuccess() {
   const location = useLocation();
   
-  // FIX: If no state is passed, use default mock data so the page doesn't crash or redirect
   const bookingDetails = location.state?.booking || {
     carName: "Premium Fleet Vehicle",
     days: 3,
@@ -12,7 +11,6 @@ export default function BookingSuccess() {
     totalCost: 250
   };
 
-  // Static Bank Details for Payment
   const BANK_DETAILS = {
     accountName: "Velocity Fleet Rentals Ltd",
     accountNumber: "1023948571",
@@ -24,7 +22,6 @@ export default function BookingSuccess() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 lg:p-12 flex items-center justify-center">
       <div className="w-full max-w-2xl bg-slate-900 border border-slate-850 rounded-3xl p-8 shadow-2xl space-y-8 relative overflow-hidden">
         
-        {/* Success Indicator */}
         <div className="text-center space-y-2">
           <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center text-3xl mx-auto">
             ✓
@@ -37,7 +34,6 @@ export default function BookingSuccess() {
 
         <hr className="border-slate-850" />
 
-        {/* Bank Payment Instructions */}
         <div className="bg-slate-950 border border-slate-850 rounded-2xl p-6 space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-widest text-blue-500">Bank Transfer Payment Instructions</h2>
           
@@ -70,7 +66,6 @@ export default function BookingSuccess() {
           </div>
         </div>
 
-        {/* Summary Breakdown */}
         <div className="border border-slate-850/60 rounded-2xl p-5 space-y-3 text-sm bg-slate-900/40">
           <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Order Manifest</h3>
           <div className="flex justify-between"><span className="text-slate-400">Selected Vehicle:</span> <span className="text-white font-medium">{bookingDetails.carName}</span></div>
@@ -83,7 +78,6 @@ export default function BookingSuccess() {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="pt-2 text-center">
           <Link 
             to="/cars" 
